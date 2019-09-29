@@ -10,6 +10,8 @@
 // PlatformIO libraries
 #include <SerialCommand.h>  // pio lib install 173, lib details see https://github.com/kroimon/Arduino-SerialCommand
 #include <Timer.h>          // pio lib install 1699, lib details see https://github.com/dniklaus/wiring-timer
+#include <DHT.h>
+#include <DHT_U.h>
 
 // private libraries
 #include <DbgCliNode.h>
@@ -31,6 +33,8 @@
 #include <LoraWanAbp.h>
 #include <LoRaWanDriver.h>
 #include <MyLoRaWanConfigAdapter.h>
+#include <ToggleButton.h>
+#include <LoRaWanRxDataToStatusLedAdapter.h>
 
 LoRaWanDriver* m_LoraWanInterface = 0;
 // Pin mapping
@@ -49,6 +53,7 @@ const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
 SerialCommand* sCmd = 0;
 Assets* assets = 0;
 Battery* battery = 0;
+ToggleButton* statusLed = 0;
 
 void setup()
 {
@@ -74,18 +79,22 @@ void setup()
                                    };
   battery = new Battery(new MyBatteryAdapter(), battCfg);
 
+  //---------------------------------------------------------------------------
+  // Status LED (ToggleButton)
+  //---------------------------------------------------------------------------
+  statusLed = new ToggleButton(ToggleButton::BTN_NC, BUILTIN_LED);
+
   //-----------------------------------------------------------------------------
   // LoRaWan
   //-----------------------------------------------------------------------------
   m_LoraWanInterface = new LoraWanAbp(new MyLoRaWanConfigAdapter(assets));
 
-  // #TODO nid: remove this again (this is just used when working with single channel gateway)
-//  m_LoraWanInterface->setIsSingleChannel(true);
-
   const char txString[] = "0123456789";
   unsigned char txBuffer[strlen(txString)+1];
   memcpy(txBuffer, txString, strlen(txString));
   m_LoraWanInterface->setPeriodicMessageData(txBuffer, strlen(txString));
+
+  m_LoraWanInterface->setLoraWanRxDataEventAdapter(new LoRaWanRxDataToStatusLedAdapter(statusLed, m_LoraWanInterface));
 }
 
 void loop()
@@ -94,6 +103,6 @@ void loop()
   {
     sCmd->readSerial();     // process serial commands
   }
-  yield();                  // process Timers
+  scheduleTimers();         // process Timers
   m_LoraWanInterface->loopOnce();
 }
