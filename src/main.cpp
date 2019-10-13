@@ -35,9 +35,12 @@
 #include <MyLoRaWanConfigAdapter.h>
 #include <ToggleButton.h>
 #include <LoRaWanRxDataToStatusLedAdapter.h>
+#include <ILoraWanTxDataEventAdapter.h>
+#include <ILoraWanRxDataEventAdapter.h>
 
 LoRaWanDriver* m_LoraWanInterface = 0;
 // Pin mapping
+
 //#if defined(ARDUINO_SAMD_FEATHER_M0)
 const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
 //#elif defined (__arm__) && defined (__SAM3X8E__)              // Arduino Due => Dragino Shield
@@ -50,10 +53,56 @@ const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
 #define BUILTIN_LED 13
 #endif
 
+#define DHTPIN      12        // Pin which is connected to the DHT sensor.
+#define DHTTYPE     DHT22     // DHT 22 (AM2302)
+
 SerialCommand* sCmd = 0;
 Assets* assets = 0;
 Battery* battery = 0;
 ToggleButton* statusLed = 0;
+
+//-----------------------------------------------------------------------------
+
+class LoRaWanTxDataRequester : public ILoraWanTxDataEventAdapter
+{
+private:
+  LoRaWanDriver* m_loraDriver;
+  DHT_Unified* m_dht;
+
+public:
+  LoRaWanTxDataRequester(LoRaWanDriver* loRaWanDriver)
+  : m_loraDriver(loRaWanDriver)
+  , m_dht(new DHT_Unified(DHTPIN, DHTTYPE))
+  { }
+
+  virtual ~LoRaWanTxDataRequester()
+  {
+    delete m_dht;
+    m_dht = 0;
+  }
+
+  void messageTransmitted()
+  {
+    sensors_event_t event;
+
+    // Get temperature event and pass its value to the LoRaWan driver.
+    m_dht->temperature().getEvent(&event);
+
+    if (!isnan(event.temperature))
+    {
+      int8_t tempInteger  = static_cast<int8_t>(event.temperature);
+      int8_t tempFraction = static_cast<int8_t>(static_cast<int16_t>(event.temperature*100.0)-static_cast<int16_t>(event.temperature)*100);
+
+      uint8_t temperature[] = { static_cast<uint8_t>(tempInteger), static_cast<uint8_t>(tempFraction) };
+
+      m_loraDriver->setPeriodicMessageData(temperature, sizeof(temperature)/sizeof(uint8_t));
+
+      TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %d.%02d *C", tempInteger, tempFraction);
+    }
+  }
+};
+
+//-----------------------------------------------------------------------------
 
 void setup()
 {
@@ -88,13 +137,11 @@ void setup()
   // LoRaWan
   //-----------------------------------------------------------------------------
   m_LoraWanInterface = new LoraWanAbp(new MyLoRaWanConfigAdapter(assets));
-
-  const char txString[] = "0123456789";
-  unsigned char txBuffer[strlen(txString)+1];
-  memcpy(txBuffer, txString, strlen(txString));
-  m_LoraWanInterface->setPeriodicMessageData(txBuffer, strlen(txString));
-
   m_LoraWanInterface->setLoraWanRxDataEventAdapter(new LoRaWanRxDataToStatusLedAdapter(statusLed, m_LoraWanInterface));
+  m_LoraWanInterface->setLoraWanTxDataEventAdapter(new LoRaWanTxDataRequester(m_LoraWanInterface));
+
+  // trigger the first measurement and prepare data for TX with LoRaWan
+  m_LoraWanInterface->loraWanTxDataEventAdapter()->messageTransmitted();
 }
 
 void loop()
