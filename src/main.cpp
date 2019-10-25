@@ -37,10 +37,10 @@
 #include <LoRaWanRxDataToStatusLedAdapter.h>
 #include <ILoraWanTxDataEventAdapter.h>
 #include <ILoraWanRxDataEventAdapter.h>
+#include <LoraMessage.h>
 
 LoRaWanDriver* m_LoraWanInterface = 0;
 // Pin mapping
-
 //#if defined(ARDUINO_SAMD_FEATHER_M0)
 const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
 //#elif defined (__arm__) && defined (__SAM3X8E__)              // Arduino Due => Dragino Shield
@@ -84,21 +84,31 @@ public:
   void messageTransmitted()
   {
     sensors_event_t event;
+    LoraMessage loRaMessage;
+
 
     // Get temperature event and pass its value to the LoRaWan driver.
     m_dht->temperature().getEvent(&event);
-
     if (!isnan(event.temperature))
     {
-      int8_t tempInteger  = static_cast<int8_t>(event.temperature);
-      int8_t tempFraction = static_cast<int8_t>(static_cast<int16_t>(event.temperature*100.0)-static_cast<int16_t>(event.temperature)*100);
+//      int8_t tempInteger  = static_cast<int8_t>(event.temperature);
+//      int8_t tempFraction = static_cast<int8_t>(static_cast<int16_t>(event.temperature*100.0)-static_cast<int16_t>(event.temperature)*100);
+//
+//      uint8_t temperature[] = { static_cast<uint8_t>(tempInteger), static_cast<uint8_t>(tempFraction) };
+//      TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %d.%02d *C", tempInteger, tempFraction);
 
-      uint8_t temperature[] = { static_cast<uint8_t>(tempInteger), static_cast<uint8_t>(tempFraction) };
-
-      m_loraDriver->setPeriodicMessageData(temperature, sizeof(temperature)/sizeof(uint8_t));
-
-      TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %d.%02d *C", tempInteger, tempFraction);
+      loRaMessage.addTemperature(event.temperature);
     }
+
+    m_dht->humidity().getEvent(&event);
+    if (!isnan(event.relative_humidity))
+    {
+      loRaMessage.addHumidity(event.relative_humidity);
+    }
+
+    TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %f *C, Hunidity: %f", event.temperature, event.relative_humidity);
+
+    m_loraDriver->setPeriodicMessageData(loRaMessage.getBytes(), loRaMessage.getLength());
   }
 };
 
