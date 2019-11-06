@@ -39,7 +39,7 @@
 #include <ILoraWanRxDataEventAdapter.h>
 #include <LoraMessage.h>
 
-LoRaWanDriver* m_LoraWanInterface = 0;
+LoRaWanDriver* loRaWanInterface = 0;
 // Pin mapping
 //#if defined(ARDUINO_SAMD_FEATHER_M0)
 const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
@@ -66,8 +66,8 @@ ToggleButton* statusLed = 0;
 class LoRaWanTxDataRequester : public ILoraWanTxDataEventAdapter
 {
 private:
-  LoRaWanDriver* m_loraDriver;
-  DHT_Unified* m_dht;
+  LoRaWanDriver*  m_loraDriver;
+  DHT_Unified*    m_dht;
 
 public:
   LoRaWanTxDataRequester(LoRaWanDriver* loRaWanDriver)
@@ -87,26 +87,21 @@ public:
     LoraMessage loRaMessage;
 
 
-    // Get temperature event and pass its value to the LoRaWan driver.
+    // Get temperature event and pass its value to the LoraMessage.
     m_dht->temperature().getEvent(&event);
     if (!isnan(event.temperature))
     {
-//      int8_t tempInteger  = static_cast<int8_t>(event.temperature);
-//      int8_t tempFraction = static_cast<int8_t>(static_cast<int16_t>(event.temperature*100.0)-static_cast<int16_t>(event.temperature)*100);
-//
-//      uint8_t temperature[] = { static_cast<uint8_t>(tempInteger), static_cast<uint8_t>(tempFraction) };
-//      TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %d.%02d *C", tempInteger, tempFraction);
-
       loRaMessage.addTemperature(event.temperature);
     }
 
+    // Get humidity event and pass its value to the LoraMessage.
     m_dht->humidity().getEvent(&event);
     if (!isnan(event.relative_humidity))
     {
       loRaMessage.addHumidity(event.relative_humidity);
     }
 
-    TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %f *C, Hunidity: %f", event.temperature, event.relative_humidity);
+    TR_PRINTF(m_loraDriver->trPort(), DbgTrace_Level::debug, "Temperature: %f *C, Humidity: %f", event.temperature, event.relative_humidity);
 
     m_loraDriver->setPeriodicMessageData(loRaMessage.getBytes(), loRaMessage.getLength());
   }
@@ -146,12 +141,12 @@ void setup()
   //-----------------------------------------------------------------------------
   // LoRaWan
   //-----------------------------------------------------------------------------
-  m_LoraWanInterface = new LoraWanAbp(new MyLoRaWanConfigAdapter(assets));
-  m_LoraWanInterface->setLoraWanRxDataEventAdapter(new LoRaWanRxDataToStatusLedAdapter(statusLed, m_LoraWanInterface));
-  m_LoraWanInterface->setLoraWanTxDataEventAdapter(new LoRaWanTxDataRequester(m_LoraWanInterface));
+  loRaWanInterface = new LoraWanAbp(new MyLoRaWanConfigAdapter(assets));
+  loRaWanInterface->setLoraWanRxDataEventAdapter(new LoRaWanRxDataToStatusLedAdapter(statusLed, loRaWanInterface));
+  loRaWanInterface->setLoraWanTxDataEventAdapter(new LoRaWanTxDataRequester(loRaWanInterface));
 
   // trigger the first measurement and prepare data for TX with LoRaWan
-  m_LoraWanInterface->loraWanTxDataEventAdapter()->messageTransmitted();
+  loRaWanInterface->loraWanTxDataEventAdapter()->messageTransmitted();
 }
 
 void loop()
@@ -161,5 +156,5 @@ void loop()
     sCmd->readSerial();     // process serial commands
   }
   scheduleTimers();         // process Timers
-  m_LoraWanInterface->loopOnce();
+  loRaWanInterface->loopOnce();
 }
