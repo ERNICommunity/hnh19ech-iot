@@ -8,16 +8,6 @@
 #include "ProductDebug.h"
 
 #include <Arduino.h>
-#include <Timer.h>
-#include <SerialCommand.h>
-#include <DbgCliNode.h>
-#include <DbgCliTopic.h>
-#include <DbgCliCommand.h>
-#include <DbgTraceContext.h>
-#include <DbgTracePort.h>
-#include <DbgTraceLevel.h>
-#include <DbgPrintConsole.h>
-#include <DbgTraceOut.h>
 #include <AppDebug.h>
 
 
@@ -37,9 +27,9 @@ void setupProdDebugEnv()
   setupDebugEnv();
 
   Serial.println();
-  Serial.println("---------------------------------------------");
-  Serial.println("Hello from Wiring LoRaWan Skeleton Application!");
-  Serial.println("---------------------------------------------");
+  Serial.println("-------------------------------------------------");
+  Serial.println("Hello from HnH 2019 LoRaWan Skeleton Application!");
+  Serial.println("-------------------------------------------------");
   Serial.println();
 }
 
