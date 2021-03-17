@@ -6,25 +6,17 @@
  */
 
 #include <Arduino.h>
+#include <Wire.h>
 
 // PlatformIO libraries
 #include <SerialCommand.h>  // pio lib install 173, lib details see https://github.com/kroimon/Arduino-SerialCommand
-#include <Timer.h>          // pio lib install 1699, lib details see https://github.com/dniklaus/wiring-timer
+#include <SpinTimer.h>      // pio lib install 11599, lib details see https://github.com/dniklaus/spin-timer
 #include <DHT.h>
 #include <DHT_U.h>
+#include <Adafruit_FRAM_I2C.h>
 
 // private libraries
-#include <DbgCliNode.h>
-#include <DbgCliTopic.h>
-#include <DbgCliCommand.h>
-#include <DbgTracePort.h>
-#include <DbgTraceContext.h>
-#include <DbgTraceOut.h>
-#include <DbgPrintConsole.h>
-#include <DbgTraceLevel.h>
-#include <AppDebug.h>
 #include <ProductDebug.h>
-#include <RamUtils.h>
 #include <Assets.h>
 #include <MyDeviceSerialNrAdapter.h>
 #include <DetectorFakePersDataMemory.h>
@@ -33,11 +25,14 @@
 #include <LoraWanAbp.h>
 #include <LoRaWanDriver.h>
 #include <MyLoRaWanConfigAdapter.h>
-#include <ToggleButton.h>
+#include <Indicator.h>
+#include <MyBuiltinLedIndicatorAdapter.h>
 #include <LoRaWanRxDataToStatusLedAdapter.h>
 #include <ILoraWanTxDataEventAdapter.h>
 #include <ILoraWanRxDataEventAdapter.h>
 #include <LoraMessage.h>
+#include <DbgTracePort.h>
+#include <DbgTraceLevel.h>
 
 LoRaWanDriver* loRaWanInterface = 0;
 // Pin mapping
@@ -59,7 +54,7 @@ const lmic_pinmap lmic_pins = LmicPinMap_AdafruitFeatherM0();
 SerialCommand* sCmd = 0;
 Assets* assets = 0;
 Battery* battery = 0;
-ToggleButton* statusLed = 0;
+Indicator* statusLed = 0;
 
 //-----------------------------------------------------------------------------
 
@@ -109,6 +104,9 @@ public:
 
 //-----------------------------------------------------------------------------
 
+//Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
+//uint16_t          framAddr = 0;
+
 void setup()
 {
   pinMode(BUILTIN_LED, OUTPUT);
@@ -117,6 +115,40 @@ void setup()
   delay(5000);
 
   setupProdDebugEnv();
+
+//  if (fram.begin())
+//  {  // you can stick the new i2c addr in here, e.g. begin(0x51);
+//    Serial.println("Found I2C FRAM");
+//  }
+//  else
+//  {
+//    Serial.println("I2C FRAM not identified ... check your connections?\r\n");
+//    Serial.println("Will continue in case this processor doesn't support repeated start\r\n");
+//  }
+  
+//  // Read the first byte
+//  uint8_t test = fram.read8(0x0);
+//  Serial.print("Restarted "); Serial.print(test); Serial.println(" times");
+
+  // Test write
+  // fram.write8(0x0, test+1);
+  
+  // dump the entire 32K of memory!
+  // uint8_t value;
+  // for (uint16_t a = 0; a < 32768; a++) 
+  // {
+  //   value = fram.read8(a);
+  //   if ((a % 32) == 0) 
+  //   {
+  //     Serial.print("\n 0x"); Serial.print(a, HEX); Serial.print(": ");
+  //   }
+  //   Serial.print("0x"); 
+  //   if (value < 0x1) 
+  //   {
+  //     Serial.print('0');
+  //   }
+  //   Serial.print(value, HEX); Serial.print(" ");
+  // }
 
   //-----------------------------------------------------------------------------
   // Assets (inventory and persistent data)
@@ -136,7 +168,8 @@ void setup()
   //---------------------------------------------------------------------------
   // Status LED (ToggleButton)
   //---------------------------------------------------------------------------
-  statusLed = new ToggleButton(ToggleButton::BTN_NC, BUILTIN_LED);
+  statusLed = new Indicator("led", "Built in LED.");
+  statusLed->assignAdapter(new MyBuiltinLedIndicatorAdapter());
 
   //-----------------------------------------------------------------------------
   // LoRaWan
@@ -151,10 +184,11 @@ void setup()
 
 void loop()
 {
+  // file deepcode ignore CppSameEvalBinaryExpressionfalse: sCmd gets instantiated by setupProdDebugEnv()
   if (0 != sCmd)
   {
-    sCmd->readSerial();     // process serial commands
+    sCmd->readSerial();     	// process serial commands (Debug CLI)
   }
-  scheduleTimers();         // process Timers
-  loRaWanInterface->loopOnce();
+  scheduleTimers();         	// process Timers
+  loRaWanInterface->loopOnce();	// process LoRaWan driver
 }

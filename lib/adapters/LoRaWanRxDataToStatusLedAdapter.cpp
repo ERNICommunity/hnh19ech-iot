@@ -5,12 +5,12 @@
  *      Author: nid
  */
 
-#include <ToggleButton.h>
+#include <Indicator.h>
 #include <LoRaWanDriver.h>
 #include <LoRaWanRxDataToStatusLedAdapter.h>
 
 
-LoRaWanRxDataToStatusLedAdapter::LoRaWanRxDataToStatusLedAdapter(ToggleButton* statusLed, LoRaWanDriver* loRaWanDriver)
+LoRaWanRxDataToStatusLedAdapter::LoRaWanRxDataToStatusLedAdapter(Indicator* statusLed, LoRaWanDriver* loRaWanDriver)
 : m_statusLed(statusLed)
 , m_loRaWanDriver(loRaWanDriver)
 { }
@@ -27,7 +27,14 @@ void LoRaWanRxDataToStatusLedAdapter::messageReceived(unsigned char* payload, un
       if (payload[0] == 0)
       {
         m_loRaWanDriver->setIsLoRaWanHeartBeat(false);
-        m_statusLed->setIsActive(payload[1] != 0);
+        if (payload[1] != 0)
+        {
+          m_statusLed->set();
+        }
+        else
+        {
+          m_statusLed->clear();
+        }
       }
     }
 
