@@ -104,8 +104,8 @@ public:
 
 //-----------------------------------------------------------------------------
 
-//Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
-//uint16_t          framAddr = 0;
+Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
+uint16_t          framAddr = 0;
 
 void setup()
 {
@@ -116,44 +116,21 @@ void setup()
 
   setupProdDebugEnv();
 
-//  if (fram.begin())
-//  {  // you can stick the new i2c addr in here, e.g. begin(0x51);
-//    Serial.println("Found I2C FRAM");
-//  }
-//  else
-//  {
-//    Serial.println("I2C FRAM not identified ... check your connections?\r\n");
-//    Serial.println("Will continue in case this processor doesn't support repeated start\r\n");
-//  }
-  
-//  // Read the first byte
-//  uint8_t test = fram.read8(0x0);
-//  Serial.print("Restarted "); Serial.print(test); Serial.println(" times");
-
-  // Test write
-  // fram.write8(0x0, test+1);
-  
-  // dump the entire 32K of memory!
-  // uint8_t value;
-  // for (uint16_t a = 0; a < 32768; a++) 
-  // {
-  //   value = fram.read8(a);
-  //   if ((a % 32) == 0) 
-  //   {
-  //     Serial.print("\n 0x"); Serial.print(a, HEX); Serial.print(": ");
-  //   }
-  //   Serial.print("0x"); 
-  //   if (value < 0x1) 
-  //   {
-  //     Serial.print('0');
-  //   }
-  //   Serial.print(value, HEX); Serial.print(" ");
-  // }
-
+  if (fram.begin())
+  {  // you can stick the new i2c addr in here, e.g. begin(0x51);
+    Serial.println("Found I2C FRAM");
+  }
+  else
+  {
+    Serial.println("I2C FRAM not identified ... check your connections?\r\n");
+    Serial.println("Will continue in case this processor doesn't support repeated start\r\n");
+  }
+ 
   //-----------------------------------------------------------------------------
   // Assets (inventory and persistent data)
   //-----------------------------------------------------------------------------
-  assets = new Assets(new MyDeviceSerialNrAdapter(), new DetectorFakePersDataMemory());
+  DetectorFakePersDataMemory* detectorPersDataMemory = new DetectorFakePersDataMemory(&fram);
+  assets = new Assets(new MyDeviceSerialNrAdapter(), detectorPersDataMemory);
 
   //-----------------------------------------------------------------------------
   // Battery Voltage Surveillance
@@ -175,6 +152,7 @@ void setup()
   // LoRaWan
   //-----------------------------------------------------------------------------
   loRaWanInterface = new LoraWanAbp(new MyLoRaWanConfigAdapter(assets));
+  detectorPersDataMemory->assignLoRaWanDriver(loRaWanInterface);
   loRaWanInterface->setLoraWanRxDataEventAdapter(new LoRaWanRxDataToStatusLedAdapter(statusLed, loRaWanInterface));
   loRaWanInterface->setLoraWanTxDataEventAdapter(new LoRaWanTxDataRequester(loRaWanInterface));
 
@@ -187,8 +165,8 @@ void loop()
   // file deepcode ignore CppSameEvalBinaryExpressionfalse: sCmd gets instantiated by setupProdDebugEnv()
   if (0 != sCmd)
   {
-    sCmd->readSerial();     	// process serial commands (Debug CLI)
+    sCmd->readSerial();     	  // process serial commands (Debug CLI)
   }
-  scheduleTimers();         	// process Timers
-  loRaWanInterface->loopOnce();	// process LoRaWan driver
+  scheduleTimers();         	  // process Timers
+  loRaWanInterface->loopOnce(); // process LoRaWan driver
 }
