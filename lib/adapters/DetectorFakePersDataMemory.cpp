@@ -5,18 +5,27 @@
  *      Author: niklaudi
  */
 
+#include <Adafruit_FRAM_I2C.h>
+#include <LoRaWanDriver.h>
 #include <DetectorFakePersDataMemory.h>
 
 const unsigned int DetectorFakePersDataMemory::s_numDevices  = 10;
 const unsigned int DetectorFakePersDataMemory::s_numMaxChars = 32;
 
 //-----------------------------------------------------------------------------
-DetectorFakePersDataMemory::DetectorFakePersDataMemory()
+DetectorFakePersDataMemory::DetectorFakePersDataMemory(Adafruit_FRAM_I2C* fram, LoRaWanDriver* loraWanDriver /*= 0*/)
 : m_deviceSerialNr(0)
+, m_fram(fram)
+, m_loraWanDriver(loraWanDriver)
 { }
 
 DetectorFakePersDataMemory::~DetectorFakePersDataMemory()
 { }
+
+void DetectorFakePersDataMemory::assignLoRaWanDriver(LoRaWanDriver* loraWanDriver)
+{
+  m_loraWanDriver = loraWanDriver;
+}
 
 void DetectorFakePersDataMemory::write(unsigned int address, unsigned char data)
 {
@@ -24,6 +33,17 @@ void DetectorFakePersDataMemory::write(unsigned int address, unsigned char data)
 }
 
 char DetectorFakePersDataMemory::read(unsigned int address)
+{
+  char value = 0;
+  if (0 != m_fram)
+  {
+	value = m_fram->read8(address);
+//    value = defaultChar(address);
+  }
+  return value;
+}
+
+const char DetectorFakePersDataMemory::defaultChar(unsigned int address) const
 {
   if (m_deviceSerialNr < s_numDevices)
   {
@@ -92,7 +112,7 @@ char DetectorFakePersDataMemory::read(unsigned int address)
     };
     unsigned int key = address / s_numMaxChars;
     unsigned int ch  = address % s_numMaxChars;
-    return deviceSpecificKeys[m_deviceSerialNr][key][ch];
+    return deviceSpecificKeys[this->m_deviceSerialNr][key][ch];
   }
   else
   {
@@ -100,9 +120,33 @@ char DetectorFakePersDataMemory::read(unsigned int address)
   }
 }
 
+void DetectorFakePersDataMemory::initPersStorage()
+{
+  if (0 != m_fram)
+  {
+    const unsigned int maxChars = s_numDevices * KT_NumKeys * (s_numMaxChars + 1);
+
+    for (unsigned int addr = 0; addr < maxChars; addr++)
+    {
+      m_fram->write8(addr, 0);
+    }
+
+    for (unsigned int addr = 0; addr < maxChars; addr++)
+    {
+      m_fram->write8(addr, defaultChar(addr));
+    }
+
+    if (0 != m_loraWanDriver)
+    {
+    	m_loraWanDriver->configure(true);
+    }
+  }
+}
+
 void DetectorFakePersDataMemory::setDeviceSerialNr(unsigned long int deviceSerialNr)
 {
   m_deviceSerialNr = deviceSerialNr;
+  initPersStorage();
 }
 
 unsigned int DetectorFakePersDataMemory::sizeOfDeviceKeyStorage()
